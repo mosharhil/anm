@@ -1,0 +1,281 @@
+<!--
+    JVMSettings
+    Required before any Java-using components.
+-->
+
+<ConfigurationFragment>
+        <!--
+            for the win32 JVM, we need to ensure that the path to the jvm.dll
+            is available.  POSIX style hosts do this via scripts.
+        -->
+
+	<PathAdd name="PATH" value="$VDISTDIR/win32/jre/bin/server"/>
+        <if property="platform" value="windows">
+            <Environment name="OPENSSL_ENGINES" value="$VDISTDIR/win32/lib/engines"/>
+            <PathAdd name="PATH" value="$VDISTDIR/win32/lib/engines"/>
+        </if>
+
+<JVMSettings classloader="com.vordel.boot.ServiceClassLoader">
+    <if property="initialHeap">
+        <VMArg name="-Xms${initialHeap}"/>
+    </if>
+    <if property="maxHeap">
+        <VMArg name="-Xmx${maxHeap}"/>
+    </if>
+
+    <if property="headless">
+        <VMArg name="-Djava.awt.headless=true"/>
+    </if>
+
+    <VMArg name="-Dfile.encoding=UTF-8"/>
+    <VMArg name="-Djava.util.logging.config.file=$VDISTDIR/system/conf/logging.properties"/>
+    <VMArg name="-Dlog4j.configurationFile=file:///$VDISTDIR/system/conf/log4j2.yaml"/>
+
+    <!-- Root path for TFXSLT resources -->
+    <VMArg name="-DACTISEDI="/>
+
+    <ifnot property="running_jython">
+      <VMArg name="-Dyamles.validation.allow.invalid.ref=true"/>
+    </ifnot>
+
+    <!-- Prevent XML External Entity Injection - Fortify -->
+    <VMArg name="-Djavax.xml.stream.isSupportingExternalEntities=false"/>
+    <VMArg name="-Djavax.xml.stream.supportDTD=false"/>
+
+    <SystemProperty name="javax.xml.parsers.DocumentBuilderFactory" value="com.vordel.common.xml.secure.SecureDocumentBuilderFactory" />
+
+    <!-- Default XSLT engine - must be XSLT 1.0 compatible -->
+    <SystemProperty name="javax.xml.transform.TransformerFactory" value="com.vordel.common.xml.secure.SecureTransformerFactory" />
+    <SystemProperty name="com.vordel.common.xml.secure.SecureTransformerFactory.Impl" value="org.apache.xalan.xsltc.trax.TransformerFactoryImpl" />
+    <SystemProperty name="javax.xml.parsers.SAXParserFactory" value="com.vordel.common.xml.secure.SecureSAXParserFactory" />
+    <SystemProperty name="javax.xml.stream.XMLInputFactory" value="com.vordel.common.xml.secure.SecureXMLInputFactory" />
+	<SystemProperty name="com.metrics.eventlog.alwaysRetainFile" value="true"/>
+
+    <!-- XSLT engine for XSLT 2+ -->
+    <SystemProperty name="version2.TransformerFactory" value="net.sf.saxon.TransformerFactoryImpl"/>
+
+    <!-- VINSTDIR the intance directory - this is the location of the running server instance.
+    For an API Server this is the location where the server will run from, normally located /groups/<group-id>/<instance-id> directory
+    For a Node Manager this the location where the product has been installed. -->
+    <SystemProperty name="VINSTDIR" value="$VINSTDIR"/>
+   <!-- VDISTDIR the distribution directory - this is the location where the product has been installed.
+    For an API Server this is the location where the product has been installed.
+    For a Node Manager this is the location where the product has been installed, for a Node Manager VINSTDIR and VDISTDIR have the same value-->
+    <SystemProperty name="VDISTDIR" value="$VDISTDIR"/>
+
+    <!-- OpenJSSE provider property: TLS key limits on symmetric cryptographic algorithms -->
+    <SecurityProperty name="jdk.tls.keyLimits" value="AES/GCM/NoPadding KeyUpdate 2^37" />
+
+    <PathAdd name="JYTHONPATH" value="$VDISTDIR/system/lib/jython/Lib"/>
+    <PathAdd name="JYTHONPATH" value="$VDISTDIR/system/lib/jython"/>
+
+    <VMArg name="-Dpython.path=$JYTHONPATH"/>
+    <VMArg name="-Dpython.cachedir=$VDISTDIR/system/lib/jython/.jython_cache" />
+    <VMArg name="-Dpython.cachedir.skip=true"/>
+    <!-- Don't write bytecode files on import. This allows users of the same group to run the scripts. -->
+    <VMArg name="-Dpython.dont.write.bytecode=true"/>
+
+    <!-- Java 11 add-exports and add-opens required by product -->
+    <VMArg name="--add-exports=java.base/sun.net.www.http=ALL-UNNAMED"/> <!-- CMDs -->
+    <VMArg name="--add-exports=java.rmi/sun.rmi.server=ALL-UNNAMED"/> <!-- Service -->
+    <VMArg name="--add-exports=java.base/java.security=ALL-UNNAMED"/> <!-- FIPS -->
+    <VMArg name="--add-opens=java.base/java.lang=ALL-UNNAMED"/> <!-- javax-bind -->
+    <VMArg name="--add-exports=java.xml/jdk.xml.internal=ALL-UNNAMED"/> <!-- krb5 -->
+    <VMArg name="--add-exports=java.base/jdk.internal.util=ALL-UNNAMED"/>
+    <VMArg name="--add-exports=java.base/sun.security.util=ALL-UNNAMED"/>
+    <VMArg name="--add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED"/>
+    <VMArg name="--add-exports=java.security.jgss/sun.security.krb5.internal=ALL-UNNAMED"/>
+    <VMArg name="--add-exports=java.security.jgss/sun.security.krb5.internal.crypto=ALL-UNNAMED"/>
+    <VMArg name="--add-exports=java.security.jgss/sun.security.jgss=ALL-UNNAMED"/>
+    <VMArg name="--add-exports=java.security.jgss/sun.security.jgss.krb5=ALL-UNNAMED"/>
+    <VMArg name="--add-exports=java.security.jgss/sun.security.jgss.spi=ALL-UNNAMED"/>
+
+    <!-- Java 11 Nashorn engind deprecation warning removed -->
+    <VMArg name="-Dnashorn.args=--no-deprecation-warning"/>
+
+    <!--  Load the server instance jvm.xml file if it exists and this is not a jython script
+          and we are not debugging the Node Manager.
+          The property "debugNodeManager" is not set by default.
+          Place
+          <set property="debugNodeManager" />
+          into your conf/jvm.xml if you are debugging node manager to avoid
+          including conf/jvm.xml twice as VINSTDIR=VDISTDIR.
+     -->
+    <ifnot property="running_jython">
+        <ifnot property="debugNodeManager">
+	        <if exists="$VINSTDIR/conf/jvm.xml">
+	          <include file="$VINSTDIR/conf/jvm.xml"/>
+	        </if>
+	    </ifnot>
+    </ifnot>
+
+    <!-- Load these Jars first, to override duplicate APIs -->
+    <if exists="$VDISTDIR/conf/jvm.xml">
+	    <include file="$VDISTDIR/conf/jvm.xml"/>
+    </if>
+
+    <if exists="$VINSTDIR/ext/lib">
+        <ClassDir name="$VINSTDIR/ext/lib" />
+        <ClassPath name="$VINSTDIR/ext/lib" />
+    </if>
+
+    <!-- Add user extension dirs to classpath to pick up jar files-->
+    <ClassDir name="$VDISTDIR/ext/lib" />
+    <ClassDir name="$VDISTDIR/ext/$DISTRIBUTION/java" />
+    <!-- Add user extension dirs to classpath to pick up uncompressed classes and resources -->
+    <ClassPath name="$VDISTDIR/ext/lib" />
+
+    <ClassDir name="$VDISTDIR/system/lib/jce" />
+    <ClassPath name="$VDISTDIR/system/lib/modules/activation.jar" />
+
+    <!-- Platform specific classes -->
+    <ClassDir name="$VDISTDIR/$DISTRIBUTION/java/" />
+
+    <!-- uncompressed classes and resources -->
+    <ClassPath name="$VDISTDIR/system/lib/" />
+    <ClassPath name="$VDISTDIR/system/lib/modules" />
+
+    <!-- branding JAR files -->
+   <if exists="$VDISTDIR/system/lib/branding">
+    <ClassDir name="$VDISTDIR/system/lib/branding" />
+   </if>
+
+    <!-- sysupgrade JAR files -->
+    <if property="running_sysupgrade">
+      <ClassDir name="$VDISTDIR/upgrade/lib"/>
+    </if>
+
+    <!-- General JAR locations. -->
+    <ClassDir name="$VDISTDIR/system/lib" />
+    <ClassDir name="$VDISTDIR/system/lib/plugins" />
+    <ClassDir name="$VDISTDIR/system/lib/modules" />
+    <ClassDir name="$VDISTDIR/system/lib/modules/xalan-j" />
+    <ClassDir name="$VDISTDIR/system/lib/modules/swagger" />
+
+    <!-- Connectors JAR location -->
+    <if exists="$VDISTDIR/system/lib/connectors">
+	  <ClassDir name="$VDISTDIR/system/lib/connectors" />
+    </if>
+
+    <!-- Mapper JAR location -->
+    <if exists="$VDISTDIR/system/lib/mapper">
+	  <ClassDir name="$VDISTDIR/system/lib/mapper" />
+    </if>
+
+    <!-- Cassandra client JAR location -->
+    <if exists="$VDISTDIR/system/lib/modules/cassandra/client">
+	  <ClassDir name="$VDISTDIR/system/lib/modules/cassandra/client" />
+    </if>
+
+
+    <!-- Embedded ActiveMQ JAR location -->
+    <if exists="$VDISTDIR/system/lib/embeddedAMQ">
+	  <ClassDir name="$VDISTDIR/system/lib/embeddedAMQ" />
+    </if>
+    <if exists="$VDISTDIR/system/lib/embeddedAMQ/client">
+	  <ClassDir name="$VDISTDIR/system/lib/embeddedAMQ/client" />
+    </if>
+
+   <!--  Axway Sentinel  -->
+   <ClassDir name="$VDISTDIR/system/lib/modules/sentinel" />
+   <ClassDir name="$VDISTDIR/system/lib/modules/sentinel/axway-common-libs" />
+
+   <!--  Amazon Web Services (AWS)  -->
+   <ClassDir name="$VDISTDIR/system/lib/modules/aws" />
+
+   <!-- Oracle Entitlements Server -->
+   <if exists="$VDISTDIR/system/lib/modules/oes">
+    <ClassDir name="$VDISTDIR/system/lib/modules/oes" />
+   </if>
+
+    <ifnot property="no_soasm">
+      <if exists="$VDISTDIR/system/lib/modules/soasm">
+        <ClassDir name="$VDISTDIR/system/lib/modules/soasm" />
+      </if>
+    </ifnot>
+
+    <ClassDir name="$VDISTDIR/system/lib/db" />
+
+    <ClassPath name="$VDISTDIR/system/lib/modules/soasm/soasmapi.jar" />
+    <ClassPath name="$VDISTDIR/$DISTRIBUTION/java/smjavaagentapi.jar" />
+
+    <!-- For products that need FOP files -->
+    <if exists="$VDISTDIR/system/lib/fop">
+      <ClassDir name="$VDISTDIR/system/lib/fop/build" />
+      <ClassDir name="$VDISTDIR/system/lib/fop/lib" />
+    </if>
+
+    <!-- Cayenne -->
+    <ClassDir name="$VDISTDIR/system/lib/modules/cayenne" />
+
+    <VMArg name="-DVDISTDIR=$VDISTDIR" />
+    <VMArg name="-Djava.net.preferIPv4Stack=true" />
+
+    <!-- RBAC -->
+    <if exists="$VINSTDIR/conf/acl.json">
+        <VMArg name="-Dcom.vordel.rbac.policy=$VINSTDIR/conf/acl.json" />
+    </if>
+    <ifnot exists="$VINSTDIR/conf/acl.json">
+        <VMArg name="-Dcom.vordel.rbac.policy=$VDISTDIR/conf/acl.json" />
+    </ifnot>
+
+    <!--  Disable Terracotta update checker (applies to ehcache and quartz)-->
+    <VMArg name="-Dnet.sf.ehcache.skipUpdateCheck=true"/>
+    <VMArg name="-Dorg.terracotta.quartz.skipUpdateCheck=true"/>
+
+    <!-- Enable/disable strict checking of URI syntax for incoming HTTP requests.
+         If true, requests with invalid URI syntax are rejected.  This is the default,
+         and is the recommended setting.
+         If false, the Gateway finds the best path match for the URI string. -->
+    <VMArg name="-Dcom.vordel.strictUriSyntaxChecking=true"/>
+    <VMArg name="-Dorg.jboss.logging.provider=log4j"/>
+    <!--
+         This setting may be used to correct invalid query string parameters sent by
+         a client to the Gateway.
+         If the Gateway receives a URI that is invalid, and the
+         "urlEncodeInvalidQueryStringParamChars" setting contains 1 or more characters,
+         the Gateway will URL encode any occurences of these characters in the received
+         query string parameter values.
+         Note that the Gateway will check the URI validity after the encoding has been
+         applied. If incorrectly configured, the URI may still be invalid.
+         Listing the exact characters gives more control on exactly what should
+         get encoded and should help avoid double URL encoding.
+         The characters listed may be required to be XML escaped for example:-
+         "      &quot;
+         <      &lt;
+         >      &gt;
+         space  &#32;
+
+         The " < > space { and } will be URL encoded if the following is specified:-
+
+         <VMArg name="-DurlEncodeInvalidQueryStringParamChars=&quot;&lt;&gt;&#32;{}" />
+
+     -->
+
+
+    <!--
+
+        Due to interactions between the Java VM and "LinuxThreads",
+        this setting may be required for clean shutdown on old Linux
+        distributions (those with a 2.4 kernel without a back-ported
+        NPTL)
+
+        Note that using this setting will disable the ability to get a
+        stack trace from the server by sending it a SIGQUIT: only enable
+        if absolutely necessary.
+
+        <VMArg name="-Xrs" />
+    -->
+
+    <SecurityProvider index="1" name="sun.security.provider.Sun" />
+    <SecurityProvider index="2" name="sun.security.rsa.SunRsaSign" />
+    <SecurityProvider index="3" name="com.vordel.security.openssl.OSSLProvider" />
+    <SecurityProvider index="4" name="com.sun.net.ssl.internal.ssl.Provider" />
+    <SecurityProvider index="5" name="com.sun.crypto.provider.SunJCE" />
+    <SecurityProvider index="6" name="sun.security.jgss.SunProvider" />
+    <SecurityProvider index="7" name="com.sun.security.sasl.Provider" />
+    <SecurityProvider index="8" name="iaik.security.provider.IAIK" />
+    <SecurityProvider index="9" name="org.bouncycastle.jce.provider.BouncyCastleProvider" />
+
+</JVMSettings>
+</ConfigurationFragment>
